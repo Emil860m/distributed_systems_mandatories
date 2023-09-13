@@ -1,7 +1,3 @@
-// --- deadlock explanation ---
-// The philosophers eat alternating between even i and odd i.
-// Therefore, the odd philosophers will wait until the even has eaten.
-
 package main
 
 import (
@@ -71,6 +67,8 @@ func philosopherThread(i int, completeChannel chan bool, pickupRightChannel chan
 		//time.Sleep(time.Millisecond * time.Duration(rand.Intn(delayTime)))
 		//pickupLeftChannel <- true
 
+		fmt.Printf("Philosopher %d is eating\n", i)
+
 		eatCount++
 
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(delayTime)))
@@ -78,7 +76,8 @@ func philosopherThread(i int, completeChannel chan bool, pickupRightChannel chan
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(delayTime)))
 		<-putDownLeftChannel
 
-		//fmt.Printf("Philosopher %d has eaten %d times\n", i, eatCount)
+		fmt.Printf("Philosopher %d has eaten (%d times)\n", i, eatCount)
+
 	}
 	fmt.Printf("Philosopher %d is done eating!\n", i)
 
