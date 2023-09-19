@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// the time each philosopher will delay picking up or putting down a fork.
+// the time each philosopher will delay before taking an action
 const delayTime = 100
 
 func main() {
@@ -50,7 +50,9 @@ func main() {
 func philosopherThread(i int, completeChannel chan bool, pickupRightChannel chan bool, putDownRightChannel chan bool, pickupLeftChannel chan bool, putDownLeftChannel chan bool) {
 	eatCount := 0
 	for eatCount < 3 {
+		// this code is with the deadlock solution
 		if i%2 == 0 {
+			// sleep between actions so the chance of a deadlock is higher
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(delayTime)))
 			pickupRightChannel <- true
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(delayTime)))
@@ -62,6 +64,7 @@ func philosopherThread(i int, completeChannel chan bool, pickupRightChannel chan
 			pickupRightChannel <- true
 		}
 
+		// this code is without the deadlock solution
 		//time.Sleep(time.Millisecond * time.Duration(rand.Intn(delayTime)))
 		//pickupRightChannel <- true
 		//time.Sleep(time.Millisecond * time.Duration(rand.Intn(delayTime)))
