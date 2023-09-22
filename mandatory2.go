@@ -23,19 +23,16 @@ func server(completeChannel chan bool) {
 	wConn := createUDPWriter(8080, 8081)
 	lConn := createUDPListener(8080)
 	fmt.Println("Server listening on 127.0.0.1:8080")
-
 	// read x
-	x, remote := readIntFromConn(lConn)
+	length, x, remote := readIntFromConn(lConn)
 	fmt.Printf("Server recieved: %d from %s\n", x, remote)
+	receivedIntArray := byteArrayToInts(length, x)
 
-	// write x+1 and y
-	data := []uint32{x + 1, 20}
-
-	payload := make([]byte, 8)
-	binary.BigEndian.PutUint32(payload[0:], data[0])
-	binary.BigEndian.PutUint32(payload[4:], data[1])
-
-	writeIntToConn(x+1, wConn)
+	// send x+1, y
+	var y uint32 = 20
+	data := []uint32{receivedIntArray[0] + 1, y}
+	writeIntToConn(intsToByteArray(data), wConn)
+	fmt.Printf("Server sent: %d, %d", receivedIntArray[0]+1, y)
 
 	fmt.Println("Server finished!")
 	completeChannel <- true
@@ -44,7 +41,6 @@ func server(completeChannel chan bool) {
 func client(completeChannel chan bool) {
 	wConn := createUDPWriter(8081, 8080)
 	lConn := createUDPListener(8081)
-
 	// first send from client
 	var x uint32 = 10
 	byteArray := make([]byte, 4)
@@ -53,10 +49,11 @@ func client(completeChannel chan bool) {
 	fmt.Printf("Client sent: %d\n", x)
 
 	// client read x+1
-	x1, _ := readIntFromConn(lConn)
+	length, receivedByteArray, _ := readIntFromConn(lConn)
 
-	if x1 == x+1 {
-
+	receivedIntArray := byteArrayToInts(length, receivedByteArray)
+	if x != receivedIntArray[0]+1 {
+		panic("Not correct response")
 	}
 
 	fmt.Println("Client finished!")
