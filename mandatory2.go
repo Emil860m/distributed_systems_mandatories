@@ -8,95 +8,106 @@ import (
 	"time"
 )
 
+// the max time the server and client will wait for a responce
 const timeoutTime = 10
 
 func main() {
 	serverChannel := make(chan bool)
 	clientChannel := make(chan bool)
 
-	go server(serverChannel)
-	go client(clientChannel)
+	var serverPort = 8080
+	var clientPort = 8081
 
+	go server(serverChannel, serverPort)
+	go client(clientChannel, serverPort, clientPort)
+
+	// wait for both server and client to finish
 	<-serverChannel
 	<-clientChannel
-}
-func server(completeChannel chan bool) {
-	lConn := createUDPListener(8080)
-	defer lConn.Close()
-	fmt.Println("Server listening on 127.0.0.1:8080")
-	// read dataReceived
-	length, dataReceived, remote := readIntFromConn(lConn)
-	receivedIntArray := byteArrayToInts(length, dataReceived)
-	x := receivedIntArray[0]
-	fmt.Printf("Server recieved: %d from %s\n", receivedIntArray, remote)
-	lConn.Close()
 
-	// send dataReceived+1, y
-	var y uint32 = rand.Uint32()
+	fmt.Println("\n3-way handshake finished!")
+}
+func server(completeChannel chan bool, serverPort int) {
+	// server read x
+	lConn := createUDPListener(serverPort)
+	fmt.Printf("Server listening on 127.0.0.1:%d\n", serverPort)
+	length, dataReceived, remote := readIntFromConn(lConn)
+	lConn.Close()
+	receivedIntArray := byteArrayToIntArray(length, dataReceived)
+	x := receivedIntArray[0]
+
+	fmt.Printf("Server received: syn seq=%d from %s\n", receivedIntArray[0], remote)
+
+	// server send x+1, y
+	var y = rand.Uint32()
 	data := []uint32{receivedIntArray[0] + 1, y}
-	wConn := createUDPWriter(8080, remote.Port, string(remote.IP))
-	defer wConn.Close()
-	writeIntToConn(intsToByteArray(data), wConn)
-	fmt.Printf("Server sent: %d, %d\n", x+1, y)
+	wConn := createUDPWriter(serverPort, remote.Port, string(remote.IP))
+	writeIntToConn(intArrayToByteArray(data), wConn)
 	wConn.Close()
 
-	lConn = createUDPListener(8080)
-	// read dataReceived
+	fmt.Printf("Server sent: syn ack=%d, seq=%d\n", x+1, y)
+
+	// server read y+1 x+1
+	lConn = createUDPListener(serverPort)
 	length, dataReceived, remote = readIntFromConn(lConn)
-	receivedIntArray = byteArrayToInts(length, dataReceived)
-	fmt.Printf("Server recieved: %d from %s\n", receivedIntArray, remote)
-	if y+1 != receivedIntArray[0] || x+1 != receivedIntArray[1] {
-		panic("Not correct response")
-	}
 	lConn.Close()
+	receivedIntArray = byteArrayToIntArray(length, dataReceived)
+
+	fmt.Printf("Server received: ack=%d, seq=%d from %s\n", receivedIntArray[0], receivedIntArray[1], remote)
+	if y+1 != receivedIntArray[0] || x+1 != receivedIntArray[1] {
+		panic(fmt.Sprintf("Not correct response: y+1 != %d or x+1 != %d", receivedIntArray[0], receivedIntArray[1]))
+	}
 
 	fmt.Println("Server finished!")
 	completeChannel <- true
 }
 
-func client(completeChannel chan bool) {
-	time.Sleep(5000000000000)
-	// first send from client
-	wConn := createUDPWriter(8081, 8080, "127.0.0.1")
-	defer wConn.Close()
-	var x uint32 = rand.Uint32()
+func client(completeChannel chan bool, serverPort int, clientPort int) {
+	time.Sleep(time.Second * 1)
+
+	// client send x
+	var x = rand.Uint32()
 	data := []uint32{x}
-	byteArray := intsToByteArray(data)
+	byteArray := intArrayToByteArray(data)
+	wConn := createUDPWriter(clientPort, serverPort, "127.0.0.1")
 	writeIntToConn(byteArray, wConn)
-	fmt.Printf("Client sent: %d\n", x)
 	wConn.Close()
 
-	// client read x+1
-	lConn := createUDPListener(8081)
-	defer lConn.Close()
+	fmt.Printf("Client sent: syn seq=%d\n", x)
+
+	// client read x+1 y
+	lConn := createUDPListener(clientPort)
 	length, receivedByteArray, _ := readIntFromConn(lConn)
 	lConn.Close()
-	receivedIntArray := byteArrayToInts(length, receivedByteArray)
-	fmt.Printf("Client recieved: %d\n", receivedIntArray)
+	receivedIntArray := byteArrayToIntArray(length, receivedByteArray)
+
+	fmt.Printf("Client received: syn ack=%d seq=%d\n", receivedIntArray[0], receivedIntArray[1])
 	if x+1 != receivedIntArray[0] {
-		panic("Not correct response")
+		panic(fmt.Sprintf("Not correct response: x+1 != %d", receivedIntArray[0]))
 	}
 
-	wConn = createUDPWriter(8081, 8080, "127.0.0.1")
+	// client send y+1 x+1
 	data = []uint32{receivedIntArray[1] + 1, x + 1}
-	byteArray = intsToByteArray(data)
+	byteArray = intArrayToByteArray(data)
+	wConn = createUDPWriter(clientPort, serverPort, "127.0.0.1")
 	writeIntToConn(byteArray, wConn)
-	fmt.Printf("Client sent: %d, %d\n", data[0], data[1])
 	wConn.Close()
+
+	fmt.Printf("Client sent: ack=%d seq=%d\n", data[0], data[1])
 
 	fmt.Println("Client finished!")
 	completeChannel <- true
 }
 
-func intsToByteArray(intArray []uint32) []byte {
-	payload := make([]byte, len(intArray)*4) // Assuming int32 integers
+func intArrayToByteArray(intArray []uint32) []byte {
+	payload := make([]byte, len(intArray)*4)
 	for i, num := range intArray {
 		binary.BigEndian.PutUint32(payload[i*4:], num)
 	}
 	return payload
 }
 
-func byteArrayToInts(length int, byteArray []byte) []uint32 {
+func byteArrayToIntArray(length int, byteArray []byte) []uint32 {
 	var receivedData []uint32
 	for i := 0; i < length; i += 4 {
 		num := binary.BigEndian.Uint32(byteArray[i : i+4])
@@ -107,8 +118,6 @@ func byteArrayToInts(length int, byteArray []byte) []uint32 {
 }
 
 func writeIntToConn(byteArray []byte, wConn *net.UDPConn) {
-	//bs := make([]byte, 4)
-	//binary.LittleEndian.PutUint32(bs, i)
 	_, writeErr := wConn.Write(byteArray)
 	if writeErr != nil {
 		fmt.Println("Write failed:", writeErr)
