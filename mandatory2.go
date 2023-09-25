@@ -63,7 +63,7 @@ func server(completeChannel chan bool, serverPort int) {
 }
 
 func client(completeChannel chan bool, serverPort int, clientPort int) {
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 200)
 
 	// client send x
 	var x = rand.Uint32()
