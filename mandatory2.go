@@ -20,41 +20,68 @@ func main() {
 	<-clientChannel
 }
 func server(completeChannel chan bool) {
-	wConn := createUDPWriter(8080, 8081)
 	lConn := createUDPListener(8080)
+	defer lConn.Close()
 	fmt.Println("Server listening on 127.0.0.1:8080")
-	// read x
-	length, x, remote := readIntFromConn(lConn)
-	fmt.Printf("Server recieved: %d from %s\n", x, remote)
-	receivedIntArray := byteArrayToInts(length, x)
+	// read dataReceived
+	length, dataReceived, remote := readIntFromConn(lConn)
+	receivedIntArray := byteArrayToInts(length, dataReceived)
+	x := receivedIntArray[0]
+	fmt.Printf("Server recieved: %d from %s\n", receivedIntArray, remote)
+	lConn.Close()
 
-	// send x+1, y
+	// send dataReceived+1, y
 	var y uint32 = 20
 	data := []uint32{receivedIntArray[0] + 1, y}
+	wConn := createUDPWriter(8080, remote.Port, string(remote.IP))
+	defer wConn.Close()
 	writeIntToConn(intsToByteArray(data), wConn)
-	fmt.Printf("Server sent: %d, %d", receivedIntArray[0]+1, y)
+	fmt.Printf("Server sent: %d, %d\n", x+1, y)
+	wConn.Close()
+
+	lConn = createUDPListener(8080)
+	// read dataReceived
+	length, dataReceived, remote = readIntFromConn(lConn)
+	receivedIntArray = byteArrayToInts(length, dataReceived)
+	fmt.Printf("Server recieved: %d from %s\n", receivedIntArray, remote)
+	if y+1 != receivedIntArray[0] || x+1 != receivedIntArray[1] {
+		panic("Not correct response")
+	}
+	lConn.Close()
 
 	fmt.Println("Server finished!")
 	completeChannel <- true
 }
 
 func client(completeChannel chan bool) {
-	wConn := createUDPWriter(8081, 8080)
-	lConn := createUDPListener(8081)
+	time.Sleep(5000000000000)
 	// first send from client
+	wConn := createUDPWriter(8081, 8080, "127.0.0.1")
+	defer wConn.Close()
 	var x uint32 = 10
-	byteArray := make([]byte, 4)
-	binary.LittleEndian.PutUint32(byteArray, x)
+	data := []uint32{10}
+	byteArray := intsToByteArray(data)
 	writeIntToConn(byteArray, wConn)
 	fmt.Printf("Client sent: %d\n", x)
+	wConn.Close()
 
 	// client read x+1
+	lConn := createUDPListener(8081)
+	defer lConn.Close()
 	length, receivedByteArray, _ := readIntFromConn(lConn)
-
+	lConn.Close()
 	receivedIntArray := byteArrayToInts(length, receivedByteArray)
-	if x != receivedIntArray[0]+1 {
+	fmt.Printf("Client recieved: %d\n", receivedIntArray)
+	if x+1 != receivedIntArray[0] {
 		panic("Not correct response")
 	}
+
+	wConn = createUDPWriter(8081, 8080, "127.0.0.1")
+	data = []uint32{receivedIntArray[1] + 1, x + 1}
+	byteArray = intsToByteArray(data)
+	writeIntToConn(byteArray, wConn)
+	fmt.Printf("Client sent: %d, %d\n", data[0], data[1])
+	wConn.Close()
 
 	fmt.Println("Client finished!")
 	completeChannel <- true
@@ -114,14 +141,14 @@ func createUDPListener(port int) *net.UDPConn {
 
 	return conn
 }
-func createUDPWriter(lPort int, rPort int) *net.UDPConn {
+func createUDPWriter(lPort int, rPort int, ip string) *net.UDPConn {
 	raddr := net.UDPAddr{
 		Port: rPort,
-		IP:   net.ParseIP("127.0.0.1"),
+		IP:   net.ParseIP(ip),
 	}
 	laddr := net.UDPAddr{
 		Port: lPort,
-		IP:   net.ParseIP("127.0.0.1"),
+		IP:   net.ParseIP(ip),
 	}
 	conn, err := net.DialUDP("udp", &laddr, &raddr)
 	if err != nil {
