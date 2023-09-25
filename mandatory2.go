@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"net"
 	"time"
 )
@@ -31,7 +32,7 @@ func server(completeChannel chan bool) {
 	lConn.Close()
 
 	// send dataReceived+1, y
-	var y uint32 = 20
+	var y uint32 = rand.Uint32()
 	data := []uint32{receivedIntArray[0] + 1, y}
 	wConn := createUDPWriter(8080, remote.Port, string(remote.IP))
 	defer wConn.Close()
@@ -58,8 +59,8 @@ func client(completeChannel chan bool) {
 	// first send from client
 	wConn := createUDPWriter(8081, 8080, "127.0.0.1")
 	defer wConn.Close()
-	var x uint32 = 10
-	data := []uint32{10}
+	var x uint32 = rand.Uint32()
+	data := []uint32{x}
 	byteArray := intsToByteArray(data)
 	writeIntToConn(byteArray, wConn)
 	fmt.Printf("Client sent: %d\n", x)
