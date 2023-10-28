@@ -1,0 +1,15 @@
+syntax = "proto3";
+package chat;
+
+option go_package = "/chat";
+
+service Chittychat {
+  rpc Connect (stream Message) returns (stream Message) {}
+}
+
+message Message {
+  int32 clientId = 1;
+  string text = 2;
+  int32 timestamp = 3;
+}
+
