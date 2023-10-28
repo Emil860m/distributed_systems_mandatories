@@ -2,6 +2,7 @@ module distributed_systems_mandatories
 
 go 1.21
 
+require google.golang.org/grpc v1.59.0
 require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	golang.org/x/net v0.17.0 // indirect
