@@ -68,7 +68,7 @@ func (s ChittychatServer) Connect(stream chat.Chittychat_ConnectServer) error {
 		Text:      "You are now connected",
 		Timestamp: 0,
 	})
-
+	time.Sleep(time.Hour)
 	return nil
 }
 
