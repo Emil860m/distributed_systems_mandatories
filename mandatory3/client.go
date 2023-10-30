@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-var clientId string = -1
+var clientName = ""
 var clientTimestamp int32 = 0
 
 func main() {
@@ -37,11 +37,11 @@ func main() {
 	// get client id from server
 	message, err := stream.Recv()
 	if err != nil {
-		log.Fatalf("someting wong2: %v", err)
+		log.Fatalf("Counldn't connect to server: %v", err)
 	}
-	clientId = message.ClientId
+	clientName = message.ClientName
 	clientTimestamp = message.Timestamp
-	log.Printf("You are now connected as client %v", message.ClientId)
+	log.Printf("You are now connected as %v", message.ClientName)
 
 	go clientListener(stream)
 
@@ -54,9 +54,9 @@ func main() {
 
 		clientTimestamp++
 		msg := chat.Message{
-			ClientId:  clientId,
-			Text:      messageText,
-			Timestamp: clientTimestamp,
+			ClientName: clientName,
+			Text:       messageText,
+			Timestamp:  clientTimestamp,
 		}
 		stream.Send(&msg)
 	}
@@ -72,6 +72,6 @@ func clientListener(stream chat.Chittychat_ConnectClient) {
 			clientTimestamp = message.Timestamp
 		}
 
-		log.Printf("%v: '%s'    (time: %v)", message.ClientId, strings.Replace(message.Text, "\n", "", 1), message.Timestamp)
+		log.Printf("%v: '%s' (time: %v)", message.ClientName, strings.Replace(message.Text, "\n", "", 1), message.Timestamp)
 	}
 }

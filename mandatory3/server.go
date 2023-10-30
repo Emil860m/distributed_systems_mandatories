@@ -14,14 +14,11 @@ import (
 var clientStreams []chat.Chittychat_ConnectServer
 var highestClientId int32 = 0
 var serverTimestamp int32 = 0
+var serverPort int = 8000
 
 func main() {
-	serverPort := 8000
 
-	server := &ChittychatServer{
-		name: "serverName",
-		port: serverPort,
-	}
+	server := &ChittychatServer{}
 
 	startServer(server)
 
@@ -35,13 +32,13 @@ func startServer(server *ChittychatServer) {
 	grpcServer := grpc.NewServer()
 
 	// Make the server listen at the given port (convert int port to string)
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(server.port))
+	listener, err := net.Listen("tcp", ":"+strconv.Itoa(serverPort))
 	defer listener.Close()
 
 	if err != nil {
 		log.Fatalf("Could not create the server %v", err)
 	}
-	log.Printf("Started server at port: %d\n", server.port)
+	log.Printf("Started server at port: %d\n", serverPort)
 
 	// Register the grpc server and serve its listener
 	chat.RegisterChittychatServer(grpcServer, server)
@@ -53,47 +50,46 @@ func startServer(server *ChittychatServer) {
 
 type ChittychatServer struct {
 	chat.UnimplementedChittychatServer
-	name string
-	port int
 }
 
 func (s ChittychatServer) Connect(stream chat.Chittychat_ConnectServer) error {
 	highestClientId++
+	clientName := "Client " + strconv.Itoa(int(highestClientId))
 	log.Printf("Client %v has connected", highestClientId)
 
 	clientStreams = append(clientStreams, stream)
 	serverTimestamp++
 
-	broadcastMessage(chat.Message{
-		ClientId:  "Server",
-		Text:      "New client has connected",
-		Timestamp: serverTimestamp,
-	})
-
 	stream.Send(&chat.Message{
-		ClientId:  strconv.Itoa(highestClientId),
-		Text:      "You are now connected",
-		Timestamp: serverTimestamp,
+		ClientName: clientName,
+		Text:       "You are now connected",
+		Timestamp:  serverTimestamp,
 	})
 
-	serverListener(stream, highestClientId)
+	go broadcastMessage(chat.Message{
+		ClientName: "Server",
+		Text:       clientName + " has connected",
+		Timestamp:  serverTimestamp,
+	})
+
+	serverListener(stream, clientName)
 
 	return nil
 }
 
-func serverListener(stream chat.Chittychat_ConnectServer, clientId int32) {
+func serverListener(stream chat.Chittychat_ConnectServer, clientName string) {
 	for {
 		message, err := stream.Recv()
 
 		if err != nil {
 			removeStreamFromList(clientStreams, stream)
 
-			log.Printf("Client %v had disconnected", clientId)
+			log.Printf("Client %v had disconnected", clientName)
 
 			broadcastMessage(chat.Message{
-				ClientId:  highestClientId,
-				Text:      "Client " + strconv.Itoa(int(clientId)) + " had disconnected",
-				Timestamp: serverTimestamp,
+				ClientName: clientName,
+				Text:       clientName + " had disconnected",
+				Timestamp:  serverTimestamp,
 			})
 
 			return

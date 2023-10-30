@@ -8,7 +8,7 @@ service Chittychat {
 }
 
 message Message {
-  string clientId = 1;
+  string clientName = 1;
   string text = 2;
   int32 timestamp = 3;
 }
