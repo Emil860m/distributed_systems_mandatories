@@ -1,7 +1,8 @@
 package main
 
-//todo: error handling and client disconnecting
+//todo: A valid message is a string of UTF-8 encoded text with a maximum length of 128 characters
 //todo: comments to show understanding of wtf is going on
+//todo: Log all service calls (Publish, Broadcast, ...) using the log package
 import (
 	"distributed_systems_mandatories/mandatory3/chat"
 	"google.golang.org/grpc"
