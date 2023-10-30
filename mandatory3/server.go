@@ -1,4 +1,5 @@
 package main
+
 //todo: error handling and client disconnecting
 //todo: comments to show understanding of wtf is going on
 import (
@@ -9,6 +10,10 @@ import (
 	"strconv"
 	"time"
 )
+
+var clientStreams []chat.Chittychat_ConnectServer
+var highestClientId int32 = 0
+var serverTimestamp int32 = 0
 
 func main() {
 	serverPort := 8000
@@ -26,7 +31,6 @@ func main() {
 // we used this for help
 // https://github.com/Mai-Sigurd/grpcTimeRequestExample?tab=readme-ov-file#setting-up-the-server
 func startServer(server *ChittychatServer) {
-
 	// Create a new grpc server
 	grpcServer := grpc.NewServer()
 
@@ -53,45 +57,62 @@ type ChittychatServer struct {
 	port int
 }
 
-var clientStreams []chat.Chittychat_ConnectServer
-var highestClientId int32 = 0
-var timestamp int32 = 0
-
 func (s ChittychatServer) Connect(stream chat.Chittychat_ConnectServer) error {
 	highestClientId++
 	log.Printf("Client %v has connected", highestClientId)
 
 	clientStreams = append(clientStreams, stream)
-	timestamp++;
+	serverTimestamp++
 
 	broadcastMessage(chat.Message{
 		ClientId:  highestClientId,
 		Text:      "New client has connected",
-		Timestamp: timestamp,
+		Timestamp: serverTimestamp,
 	})
 
 	stream.Send(&chat.Message{
 		ClientId:  highestClientId,
 		Text:      "You are now connected",
-		Timestamp: timestamp,
+		Timestamp: serverTimestamp,
 	})
 
-	serverListener(stream)
+	serverListener(stream, highestClientId)
 
 	return nil
 }
 
-func serverListener(stream chat.Chittychat_ConnectServer) {
+func serverListener(stream chat.Chittychat_ConnectServer, clientId int32) {
 	for {
 		message, err := stream.Recv()
 
 		if err != nil {
-			log.Fatalf("Server listener crashed: %v", err)
+			removeStreamFromList(clientStreams, stream)
+
+			log.Printf("Client %v had disconnected", clientId)
+
+			broadcastMessage(chat.Message{
+				ClientId:  highestClientId,
+				Text:      "Client " + strconv.Itoa(int(clientId)) + " had disconnected",
+				Timestamp: serverTimestamp,
+			})
+
+			return
 		}
-		if message.Timestamp > timestamp {
-			timestamp = message.Timestamp
+
+		if message.Timestamp > serverTimestamp {
+			serverTimestamp = message.Timestamp
 		}
 		go broadcastMessage(*message)
+	}
+}
+
+func removeStreamFromList(clientList []chat.Chittychat_ConnectServer, streamToRemove chat.Chittychat_ConnectServer) {
+	for i := 0; i < len(clientList); i++ {
+		if clientList[i] == streamToRemove {
+			clientList[i] = clientList[len(clientList)-1]
+			clientList = clientList[:len(clientList)-1]
+			break
+		}
 	}
 }
 
