@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-var clientId int32 = -1
+var clientId string = -1
 var clientTimestamp int32 = 0
 
 func main() {

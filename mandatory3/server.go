@@ -65,13 +65,13 @@ func (s ChittychatServer) Connect(stream chat.Chittychat_ConnectServer) error {
 	serverTimestamp++
 
 	broadcastMessage(chat.Message{
-		ClientId:  highestClientId,
+		ClientId:  "Server",
 		Text:      "New client has connected",
 		Timestamp: serverTimestamp,
 	})
 
 	stream.Send(&chat.Message{
-		ClientId:  highestClientId,
+		ClientId:  strconv.Itoa(highestClientId),
 		Text:      "You are now connected",
 		Timestamp: serverTimestamp,
 	})
