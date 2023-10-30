@@ -51,11 +51,14 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-
+		if len(messageText) > 128 {
+			log.Printf("Error: You message is to long. Limit: 128 characters")
+			continue
+		}
 		clientTimestamp++
 		msg := chat.Message{
 			ClientName: clientName,
-			Text:       messageText,
+			Text:       strings.Replace(messageText, "\n", "", 1),
 			Timestamp:  clientTimestamp,
 		}
 		stream.Send(&msg)
@@ -72,6 +75,6 @@ func clientListener(stream chat.Chittychat_ConnectClient) {
 			clientTimestamp = message.Timestamp
 		}
 
-		log.Printf("%v: '%s' (time: %v)", message.ClientName, strings.Replace(message.Text, "\n", "", 1), message.Timestamp)
+		log.Printf("%v: '%s' (time: %v)", message.ClientName, message.Text, message.Timestamp)
 	}
 }
