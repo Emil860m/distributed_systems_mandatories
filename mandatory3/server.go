@@ -1,5 +1,6 @@
 package main
-
+//todo: error handling and client disconnecting
+//todo: comments to show understanding of wtf is going on
 import (
 	"distributed_systems_mandatories/mandatory3/chat"
 	"google.golang.org/grpc"
@@ -54,21 +55,29 @@ type ChittychatServer struct {
 
 var clientStreams []chat.Chittychat_ConnectServer
 var highestClientId int32 = 0
+var timestamp int32 = 0
 
 func (s ChittychatServer) Connect(stream chat.Chittychat_ConnectServer) error {
 	highestClientId++
 	log.Printf("Client %v has connected", highestClientId)
 
 	clientStreams = append(clientStreams, stream)
+	timestamp++;
 
-	go serverListener(stream)
+	broadcastMessage(chat.Message{
+		ClientId:  highestClientId,
+		Text:      "New client has connected",
+		Timestamp: timestamp,
+	})
 
 	stream.Send(&chat.Message{
 		ClientId:  highestClientId,
 		Text:      "You are now connected",
-		Timestamp: 0,
+		Timestamp: timestamp,
 	})
-	time.Sleep(time.Hour)
+
+	serverListener(stream)
+
 	return nil
 }
 
@@ -78,6 +87,9 @@ func serverListener(stream chat.Chittychat_ConnectServer) {
 
 		if err != nil {
 			log.Fatalf("Server listener crashed: %v", err)
+		}
+		if message.Timestamp > timestamp {
+			timestamp = message.Timestamp
 		}
 		go broadcastMessage(*message)
 	}
