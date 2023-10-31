@@ -51,6 +51,7 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
+		// Normally the server should also check if the message is to long
 		if len(messageText) > 128 {
 			log.Printf("Error: You message is to long. Limit: 128 characters")
 			continue

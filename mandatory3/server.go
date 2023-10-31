@@ -55,7 +55,7 @@ type ChittychatServer struct {
 func (s ChittychatServer) Connect(stream chat.Chittychat_ConnectServer) error {
 	highestClientId++
 	clientName := "Client " + strconv.Itoa(int(highestClientId))
-	log.Printf("Client %v has connected", highestClientId)
+	log.Printf("Participant %v joined Chitty-Chat", highestClientId)
 
 	clientStreams = append(clientStreams, stream)
 	serverTimestamp++
@@ -84,7 +84,7 @@ func serverListener(stream chat.Chittychat_ConnectServer, clientName string) {
 		if err != nil {
 			clientStreams = removeStreamFromList(clientStreams, stream)
 
-			log.Printf("Client %v had disconnected", clientName)
+			log.Printf("Participant %v left Chitty-Chat", clientName)
 			serverTimestamp++
 			broadcastMessage(chat.Message{
 				ClientName: clientName,
