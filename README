@@ -1,25 +1,19 @@
-a)
-The packages we use are:
-	"encoding/binary": To encode the data to bytes
-	"fmt": To print to the console what the program is doing
-	"math/rand": To generate random numbers for both the client and server to send (x and y)
-	"net": To listen/write to and from the ports using udp
-	"time": To delay the client so it doesn't send before the server starts
+To run our program, cd into the mandatory3 directory
 
-	We use uint32 arrays that we convert to byte arrays, and let the net package handle the meta-data. The normal meta-data in a udp packet is usually the source port, the destination port, the length and a checksum. All of these are 2 bytes long.
+`
+cd mandatory3
+`
 
-b)
-We use goroutines to create the server and the client. They use processes to send and receive data using the net package. The reason threads are unrealistic is that we need to send the data over a network, and threads cannot communicate outside of the local computer.
+Then run the server first
 
-c)
-If we receive a packet that we did not expect, We should go back and listen to see if we receive what we expect, and continue if we receive it. If we don't, we close the connection and start over.
-We have not implemented this in our solution
+`
+go run server.go
+`
 
-d)
-It doesn't
+and the client
 
-e)
-To make sure, both the server and the client knows that a connection has been made, therefore data will not be lost during further communication
+`
+go run client.go
+`
 
-
-
+To disconnect a client, simply stop the client program (ctrl+c)
