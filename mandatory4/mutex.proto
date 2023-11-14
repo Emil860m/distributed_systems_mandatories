@@ -4,17 +4,22 @@ package chat;
 option go_package = "/mutex";
 
 service Mutex {
-  rpc RequestAccess(Request) returns (Response);
-  rpc ReleaseAccess(Request) returns (Empty);
+  rpc RequestAccess(Request) returns (Empty);
+  rpc RequestLamportTimestamp(Request) returns (LamportTimestamp);
+  rpc RequestPeerList(Request) returns (PeerList);
+  rpc LetPeerKnowIExist(Request) returns (Empty);
 }
 
 message Request {
   string clientId = 1;
-  int64 timestamp = 2;
+  int32 timestamp = 2;
 }
 
-message Response {
-  bool granted = 1;
-}
+message Empty {}
 
-message Empty{}
+message LamportTimestamp {
+  int32 timestamp = 1;
+}
+message PeerList {
+  repeated string peerList = 1;
+}

@@ -33,11 +33,11 @@ func startServer(server *ChittychatServer) {
 
 	// Make the server listen at the given port (convert int port to string)
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(serverPort))
-	defer listener.Close()
-
 	if err != nil {
 		log.Fatalf("Could not create the server %v", err)
 	}
+	defer listener.Close()
+
 	log.Printf("Started server at port: %d\n", serverPort)
 
 	// Register the grpc server and serve its listener
