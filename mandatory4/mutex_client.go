@@ -6,7 +6,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/peer"
 	"log"
 	"net"
 	"os"
@@ -15,14 +14,6 @@ import (
 )
 
 type mutexClient struct {
-	//clientId          string
-	//clientIp          string
-	//timestamp         int32
-	//waitingForAccess  bool
-	//inCriticalSection bool
-	//replies           int
-	//peerList          []string
-	//mutex             sync.Mutex
 	mutex.UnimplementedMutexServer
 }
 
@@ -34,20 +25,6 @@ var inCriticalSection = false
 var replies = 0
 var peerList = make([]string, 1)
 
-func newMutexClient(clientId string, clientIp string, peers []string) *mutexClient {
-	log.Printf("0 | Created client: %s", clientId)
-
-	return &mutexClient{
-		//clientId:          clientId,
-		//clientIp:          clientIp,
-		//timestamp:         0,
-		//waitingForAccess:  false,
-		//inCriticalSection: false,
-		//replies:           0,
-		//peerList:          peers,
-	}
-}
-
 // ask the other clients for access
 func (client *mutexClient) askForAccess() {
 	log.Printf("%v | %s's peer list is: %v", timestamp, clientId, peerList)
@@ -56,9 +33,10 @@ func (client *mutexClient) askForAccess() {
 
 	// get the highest timestamp and set this client's timestamp to 1 higher
 	for _, peer := range peerList {
-		log.Printf("Sending Lamport-timestamp request to %s\n", peer)
-		peerTimestamp := client.sendTimestampRequestToPeer(peer)
-		log.Printf("%v | %s's timestamp was: %v", timestamp, peer, peerTimestamp)
+		log.Printf("%v | Sending Lamport-timestamp request to %s\n", timestamp, peer)
+		peerId, peerTimestamp := client.sendTimestampRequestToPeer(peer)
+
+		log.Printf("%v | %s's timestamp was: %v", timestamp, peerId, peerTimestamp)
 
 		if peerTimestamp > timestamp {
 			timestamp = peerTimestamp
@@ -73,15 +51,12 @@ func (client *mutexClient) askForAccess() {
 		log.Printf("%v | %s sent access request to %s\n", timestamp, clientId, peer)
 	}
 
-	//// Wait for replies
-	//for i := 0; i < len(client.peerList)-1; i++ {
-	//	<-time.After(time.Second) // Simulate network delay
-	//}
-
+	// wait for all replies
 	for replies < len(peerList) {
 		time.Sleep(time.Millisecond * 100)
 	}
-	replies = 0
+	//replies = 0
+
 	// Enter Critical Section
 	log.Printf("%v | %s entered critical section\n", timestamp, clientId)
 	inCriticalSection = true
@@ -116,7 +91,7 @@ func (client *mutexClient) sendPeerListRequestToPeer(peer string) []string {
 	return response.PeerList
 }
 
-func (client *mutexClient) sendTimestampRequestToPeer(peer string) int32 {
+func (client *mutexClient) sendTimestampRequestToPeer(peer string) (string, int32) {
 	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error connecting to peer %s: %v", peer, err)
@@ -130,7 +105,7 @@ func (client *mutexClient) sendTimestampRequestToPeer(peer string) int32 {
 	if err != nil {
 		log.Fatalf("Error requesting access from peer %s: %v", peer, err)
 	}
-	return response.Timestamp
+	return response.ClientId, response.Timestamp
 }
 
 func (client *mutexClient) letPeerKnowIExist(peer string) {
@@ -144,7 +119,7 @@ func (client *mutexClient) letPeerKnowIExist(peer string) {
 	requestingClient := mutex.NewMutexClient(conn)
 
 	_, err = requestingClient.LetPeerKnowIExist(context.Background(),
-		&mutex.Request{ClientId: clientId, Timestamp: timestamp})
+		&mutex.ClientInfo{ClientId: clientId, ClientListeningIp: clientIp})
 	if err != nil {
 		log.Fatalf("Error requesting access from peer %s: %v", peer, err)
 	}
@@ -176,9 +151,14 @@ func (client *mutexClient) sendRequestToPeer(peer string) {
 	replies++
 }
 
-func (client mutexClient) LetPeerKnowIExist(ctx context.Context, request *mutex.Request) (*mutex.Empty, error) {
-	// add requesting client to peerList if it is not already known
-	client.addPeerToPeerList(ctx)
+func (client mutexClient) LetPeerKnowIExist(ctx context.Context, request *mutex.ClientInfo) (*mutex.Empty, error) {
+	// add requesting client to peerList if it isn't already known
+	if !slices.Contains(peerList, request.ClientListeningIp) {
+		peerList = append(peerList, request.ClientListeningIp)
+
+		log.Printf("%v | New peer added to %s's peer list: %s", timestamp, clientId, request.ClientId)
+	}
+
 	log.Printf("%v | %s let %s know they exist", timestamp, request.ClientId, clientId)
 	return &mutex.Empty{}, nil
 }
@@ -199,9 +179,6 @@ func (client mutexClient) RequestPeerList(ctx context.Context, request *mutex.Re
 func (client mutexClient) RequestAccess(ctx context.Context, request *mutex.Request) (*mutex.Empty, error) {
 	log.Printf("%v | %s asked %s for access to the critical section", timestamp, request.ClientId, clientId)
 
-	// add requesting client to peerList if it is not already known
-	//client.addPeerToPeerList(ctx)
-
 	// wait to respond if the requesting client is behind this client in the queue
 	if inCriticalSection || (waitingForAccess && request.Timestamp > timestamp) {
 		for waitingForAccess || inCriticalSection {
@@ -214,23 +191,6 @@ func (client mutexClient) RequestAccess(ctx context.Context, request *mutex.Requ
 	return &mutex.Empty{}, nil
 }
 
-func (client mutexClient) addPeerToPeerList(ctx context.Context) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		log.Fatal("Failed to get requesting peer's address")
-	}
-	clientIp := p.Addr.String()
-
-	if !slices.Contains(peerList, clientIp) {
-		log.Printf("before: %v", peerList)
-		peerList = append(peerList, clientIp)
-
-		log.Printf("after: %v", peerList)
-
-		log.Printf("%v | New peer IP added to peer list: '%s'", timestamp, clientIp)
-	}
-}
-
 func setUpListener(clientIp string) {
 	// Create a new grpc server
 	grpcServer := grpc.NewServer()
@@ -241,7 +201,7 @@ func setUpListener(clientIp string) {
 	}
 	defer listener.Close()
 
-	log.Printf("Started listening on Ip: %s\n", clientIp)
+	log.Printf("Started listening on ip: %s\n", clientIp)
 
 	// Register the grpc server and serve its listener
 	mutex.RegisterMutexServer(grpcServer, &mutexClient{})
@@ -252,32 +212,32 @@ func setUpListener(clientIp string) {
 }
 
 func main() {
-	//if len(os.Args) != 3 && len(os.Args) != 4 {
-	//	log.Fatal("Usage: go run mutex_client.go <client-id> <client-ip> <known-peer-ip>")
-	//}
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: go run mutex_client.go <client-id> <client-ip> <known-peer-ip-1> <known-peer-ip-2> ...")
+	}
 
 	clientId = os.Args[1]
 	clientIp = os.Args[2]
 
-	peerList = os.Args[3:]
-	//peerList := make([]string, 0)
+	if len(os.Args) > 3 {
+		peerList = os.Args[3:]
+	} else {
+		peerList = make([]string, 0)
+	}
 
-	client := newMutexClient(clientId, clientIp, peerList)
+	client := &mutexClient{}
+	log.Printf("%v | Created client: %s", timestamp, clientId)
 
-	//// if there is a known peer, ask that peer for the addresses of all the other peerList
-	//if len(os.Args) == 4 {
-	//	knownPeer := os.Args[3]
-	//	client.peerList = append(client.peerList, knownPeer)
-	//
-	//	knownPeersPeerList := client.sendPeerListRequestToPeer(knownPeer)
-	//	client.peerList = append(client.peerList, knownPeersPeerList...)
-	//
-	//	for _, peer := range client.peerList {
-	//		client.letPeerKnowIExist(peer)
-	//	}
-	//	log.Printf("%v | %s let peers know they exist", client.timestamp, client.clientId)
-	//
-	//}
+	// if there is a known peer, ask that peer for the addresses of all the other peerList
+	if len(os.Args) > 3 {
+		knownPeersPeerList := client.sendPeerListRequestToPeer(peerList[0])
+		peerList = append(peerList, knownPeersPeerList...)
+
+		for _, peer := range peerList {
+			client.letPeerKnowIExist(peer)
+		}
+		log.Printf("%v | %s let peers know they exist", timestamp, clientId)
+	}
 
 	// setup listener on client port
 	go setUpListener(clientIp)

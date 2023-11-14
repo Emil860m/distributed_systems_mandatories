@@ -7,18 +7,23 @@ service Mutex {
   rpc RequestAccess(Request) returns (Empty);
   rpc RequestLamportTimestamp(Request) returns (LamportTimestamp);
   rpc RequestPeerList(Request) returns (PeerList);
-  rpc LetPeerKnowIExist(Request) returns (Empty);
+  rpc LetPeerKnowIExist(ClientInfo) returns (Empty);
 }
 
 message Request {
   string clientId = 1;
   int32 timestamp = 2;
 }
+message ClientInfo {
+  string clientId = 1;
+  string clientListeningIp = 2;
+}
 
 message Empty {}
 
 message LamportTimestamp {
-  int32 timestamp = 1;
+  string clientId = 1;
+  int32 timestamp = 2;
 }
 message PeerList {
   repeated string peerList = 1;

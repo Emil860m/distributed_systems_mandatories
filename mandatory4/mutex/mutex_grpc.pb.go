@@ -25,7 +25,7 @@ type MutexClient interface {
 	RequestAccess(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Empty, error)
 	RequestLamportTimestamp(ctx context.Context, in *Request, opts ...grpc.CallOption) (*LamportTimestamp, error)
 	RequestPeerList(ctx context.Context, in *Request, opts ...grpc.CallOption) (*PeerList, error)
-	LetPeerKnowIExist(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Empty, error)
+	LetPeerKnowIExist(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type mutexClient struct {
@@ -63,7 +63,7 @@ func (c *mutexClient) RequestPeerList(ctx context.Context, in *Request, opts ...
 	return out, nil
 }
 
-func (c *mutexClient) LetPeerKnowIExist(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Empty, error) {
+func (c *mutexClient) LetPeerKnowIExist(ctx context.Context, in *ClientInfo, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/chat.Mutex/LetPeerKnowIExist", in, out, opts...)
 	if err != nil {
@@ -79,7 +79,7 @@ type MutexServer interface {
 	RequestAccess(context.Context, *Request) (*Empty, error)
 	RequestLamportTimestamp(context.Context, *Request) (*LamportTimestamp, error)
 	RequestPeerList(context.Context, *Request) (*PeerList, error)
-	LetPeerKnowIExist(context.Context, *Request) (*Empty, error)
+	LetPeerKnowIExist(context.Context, *ClientInfo) (*Empty, error)
 	mustEmbedUnimplementedMutexServer()
 }
 
@@ -96,7 +96,7 @@ func (UnimplementedMutexServer) RequestLamportTimestamp(context.Context, *Reques
 func (UnimplementedMutexServer) RequestPeerList(context.Context, *Request) (*PeerList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestPeerList not implemented")
 }
-func (UnimplementedMutexServer) LetPeerKnowIExist(context.Context, *Request) (*Empty, error) {
+func (UnimplementedMutexServer) LetPeerKnowIExist(context.Context, *ClientInfo) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LetPeerKnowIExist not implemented")
 }
 func (UnimplementedMutexServer) mustEmbedUnimplementedMutexServer() {}
@@ -167,7 +167,7 @@ func _Mutex_RequestPeerList_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _Mutex_LetPeerKnowIExist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
+	in := new(ClientInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func _Mutex_LetPeerKnowIExist_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: "/chat.Mutex/LetPeerKnowIExist",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MutexServer).LetPeerKnowIExist(ctx, req.(*Request))
+		return srv.(MutexServer).LetPeerKnowIExist(ctx, req.(*ClientInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
