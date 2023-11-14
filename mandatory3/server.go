@@ -2,7 +2,6 @@ package main
 
 //todo: A valid message is a string of UTF-8 encoded text with a maximum length of 128 characters
 //todo: comments to show understanding of wtf is going on
-//todo: Log all service calls (Publish, Broadcast, ...) using the log package
 import (
 	"distributed_systems_mandatories/mandatory3/chat"
 	"google.golang.org/grpc"
@@ -56,7 +55,7 @@ type ChittychatServer struct {
 func (s ChittychatServer) Connect(stream chat.Chittychat_ConnectServer) error {
 	highestClientId++
 	clientName := "Client " + strconv.Itoa(int(highestClientId))
-	log.Printf("Client %v has connected", highestClientId)
+	log.Printf("Participant %v joined Chitty-Chat", highestClientId)
 
 	clientStreams = append(clientStreams, stream)
 	serverTimestamp++
@@ -83,10 +82,10 @@ func serverListener(stream chat.Chittychat_ConnectServer, clientName string) {
 		message, err := stream.Recv()
 
 		if err != nil {
-			removeStreamFromList(clientStreams, stream)
+			clientStreams = removeStreamFromList(clientStreams, stream)
 
-			log.Printf("Client %v had disconnected", clientName)
-
+			log.Printf("Participant %v left Chitty-Chat", clientName)
+			serverTimestamp++
 			broadcastMessage(chat.Message{
 				ClientName: clientName,
 				Text:       clientName + " had disconnected",
@@ -103,17 +102,19 @@ func serverListener(stream chat.Chittychat_ConnectServer, clientName string) {
 	}
 }
 
-func removeStreamFromList(clientList []chat.Chittychat_ConnectServer, streamToRemove chat.Chittychat_ConnectServer) {
+func removeStreamFromList(clientList []chat.Chittychat_ConnectServer, streamToRemove chat.Chittychat_ConnectServer) []chat.Chittychat_ConnectServer {
 	for i := 0; i < len(clientList); i++ {
 		if clientList[i] == streamToRemove {
 			clientList[i] = clientList[len(clientList)-1]
-			clientList = clientList[:len(clientList)-1]
-			break
+			return clientList[:len(clientList)-1]
+			//break
 		}
 	}
+	return clientList
 }
 
 func broadcastMessage(message chat.Message) {
+	log.Printf("Broadcasting message: '%v' from %v (time: %v)", message.Text, message.ClientName, serverTimestamp)
 	for i := 0; i < len(clientStreams); i++ {
 		clientStreams[i].Send(&message)
 	}
