@@ -1,5 +1,5 @@
 # Mandatory 4
-To run our program, cd into the mandatory3 directory
+To run our program, cd into the mandatory4 directory
 ```console
 cd mandatory4
 ```
