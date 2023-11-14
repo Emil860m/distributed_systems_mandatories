@@ -213,7 +213,7 @@ func setUpListener(clientIp string) {
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: go run mutex_client.go <client-id> <client-ip> <known-peer-ip-1> <known-peer-ip-2> ...")
+		log.Fatal("Usage: go run mutex_client.go <client-id> <client-ip> <known-peer-ip>")
 	}
 
 	clientId = os.Args[1]
