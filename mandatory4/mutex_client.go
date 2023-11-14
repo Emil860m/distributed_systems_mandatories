@@ -200,18 +200,13 @@ func (client mutexClient) RequestAccess(ctx context.Context, request *mutex.Requ
 	log.Printf("%v | %s asked %s for access to the critical section", timestamp, request.ClientId, clientId)
 
 	// add requesting client to peerList if it is not already known
-	client.addPeerToPeerList(ctx)
+	//client.addPeerToPeerList(ctx)
 
 	// wait to respond if the requesting client is behind this client in the queue
-	log.Printf("%v | %s checking if access can be granted to %s", timestamp, clientId, request.ClientId)
-	fmt.Printf("%v, %v, %v, %v \n", inCriticalSection, waitingForAccess, request.Timestamp, timestamp)
 	if inCriticalSection || (waitingForAccess && request.Timestamp > timestamp) {
-		log.Printf("if")
 		for waitingForAccess || inCriticalSection {
 			time.Sleep(time.Millisecond * 100)
 		}
-	} else {
-		log.Printf("else")
 	}
 
 	log.Printf("%v | %s granted %s access to the critical section", timestamp, clientId, request.ClientId)
@@ -261,10 +256,10 @@ func main() {
 	//	log.Fatal("Usage: go run mutex_client.go <client-id> <client-ip> <known-peer-ip>")
 	//}
 
-	clientId := os.Args[1]
-	clientIp := os.Args[2]
+	clientId = os.Args[1]
+	clientIp = os.Args[2]
 
-	peerList := os.Args[3:]
+	peerList = os.Args[3:]
 	//peerList := make([]string, 0)
 
 	client := newMutexClient(clientId, clientIp, peerList)
