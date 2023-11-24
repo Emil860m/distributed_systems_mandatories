@@ -1,0 +1,63 @@
+syntax = "proto3";
+package chat;
+
+option go_package = "/auction";
+
+service serverNode {
+  rpc RequestAccess(Request) returns (Empty);
+  rpc RequestLamportTimestamp(Request) returns (LamportTimestamp);
+  rpc RequestPeerList(Request) returns (PeerList);
+  rpc LetPeerKnowIExist(serverNodeInfo) returns (Empty);
+  rpc bid(bidMessage) returns (ack);
+  rpc result(resultMessage) returns (outcome);
+}
+
+//service serverNode {
+//  rpc bid(bid) returns (ack);
+//  rpc result(result) returns (outcome);
+//}
+
+
+
+message bidMessage {
+  int32 amount = 1;
+  string name = 2;
+}
+
+message resultMessage {
+}
+
+message ack {
+  string outcome = 1;
+}
+
+message outcome {
+  bool ongoing = 1;
+  int32 amount = 2;
+  string name = 3;
+}
+
+
+
+
+
+
+
+message Request {
+  string serverNodeId = 1;
+  int32 timestamp = 2;
+}
+message serverNodeInfo {
+  string serverNodeId = 1;
+  string serverNodeListeningIp = 2;
+}
+
+message Empty {}
+
+message LamportTimestamp {
+  string serverNodeId = 1;
+  int32 timestamp = 2;
+}
+message PeerList {
+  repeated string peerList = 1;
+}
