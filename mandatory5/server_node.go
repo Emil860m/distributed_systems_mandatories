@@ -13,7 +13,7 @@ import (
 )
 
 var highestBid int32 = 0
-var bidderName string = ""
+var highestBidderName string = "No bids yet"
 var ongoing bool = true
 
 var serverId = ""
@@ -24,40 +24,47 @@ var inCriticalSection = false
 var replies = 0
 var peerList = make([]string, 1)
 
-type server_node struct {
+type serverNode struct {
 	auction.UnimplementedServerNodeServer
 }
 
 // RequestAccess this is the code that is responding to other serverNodes' requests
-func (serverNode server_node) bid(ctx context.Context, request *auction.BidMessage) (*auction.Ack, error) {
+func (serverNode serverNode) Bid(ctx context.Context, request *auction.BidMessage) (*auction.Ack, error) {
+	if !ongoing {
+		return &auction.Ack{Outcome: "Fail"}, nil
+	}
+
 	//todo: make a thing that returns ack{exception}
 	log.Printf("%v | %s made bid of %v", timestamp, request.Name, request.Amount)
 
 	if request.Amount <= highestBid {
 		return &auction.Ack{
-			Outcome: "fail",
+			Outcome: "Fail",
 		}, nil
 	}
 
-	serverNode.askForAccess()
-
+	bidSuccessful := serverNode.queueBid(*request)
+	if bidSuccessful {
+		return &auction.Ack{
+			Outcome: "Success",
+		}, nil
+	}
 	return &auction.Ack{
-		Outcome: "Success",
+		Outcome: "Fail",
 	}, nil
 
 }
 
-func (serverNode server_node) result(ctx context.Context, request *auction.ResultMessage) (*auction.Outcome, error) {
+func (serverNode serverNode) Result(ctx context.Context, request *auction.Empty) (*auction.Outcome, error) {
 	return &auction.Outcome{
 		Ongoing: ongoing,
 		Amount:  highestBid,
-		Name:    bidderName,
+		Name:    highestBidderName,
 	}, nil
-
 }
 
 // ask the other serverNodes for access
-func (serverNode *server_node) askForAccess() {
+func (serverNode *serverNode) queueBid(bid auction.BidMessage) bool {
 	log.Printf("%v | %s's peer list is: %v", timestamp, serverId, peerList)
 
 	log.Printf("%v | %s is now trying to gain access to the critical section\n", timestamp, serverId)
@@ -86,26 +93,37 @@ func (serverNode *server_node) askForAccess() {
 	for replies < len(peerList) {
 		time.Sleep(time.Millisecond * 100)
 	}
-	//replies = 0
 
 	// Enter Critical Section
 	log.Printf("%v | %s entered critical section\n", timestamp, serverId)
 	inCriticalSection = true
 
-	//todo: access critical section
-	// set highestBid to bid
-	// timestamp++
-	// if timestamp > random(90, 120) bool = false
+	//access critical section
+	if bid.Amount > highestBid {
+		highestBid = bid.Amount
+		highestBidderName = bid.Name
 
+		// tell other server nodes that the auction has finished
+		if timestamp >= 5 {
+			ongoing = false
+		}
+
+		time.Sleep(time.Second * 5)
+		serverNode.SendNewHighestBid(&bid, ongoing)
+
+		inCriticalSection = false
+		waitingForAccess = false
+		return true
+	}
 	inCriticalSection = false
 	waitingForAccess = false
 
 	// Exit Critical Section
 	log.Printf("%v | %s exited critical section\n", timestamp, serverId)
-
+	return false
 }
 
-func (serverNode *server_node) sendPeerListRequestToPeer(peer string) []string {
+func (serverNode *serverNode) sendPeerListRequestToPeer(peer string) []string {
 	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error connecting to peer %s: %v", peer, err)
@@ -124,7 +142,7 @@ func (serverNode *server_node) sendPeerListRequestToPeer(peer string) []string {
 	return response.PeerList
 }
 
-func (serverNode *server_node) sendTimestampRequestToPeer(peer string) (string, int32) {
+func (serverNode *serverNode) sendTimestampRequestToPeer(peer string) (string, int32) {
 	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error connecting to peer %s: %v", peer, err)
@@ -141,7 +159,7 @@ func (serverNode *server_node) sendTimestampRequestToPeer(peer string) (string, 
 	return response.ServerNodeId, response.Timestamp
 }
 
-func (serverNode *server_node) letPeerKnowIExist(peer string) {
+func (serverNode *serverNode) letPeerKnowIExist(peer string) {
 	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error connecting to peer %s: %v", peer, err)
@@ -158,7 +176,7 @@ func (serverNode *server_node) letPeerKnowIExist(peer string) {
 	}
 }
 
-func (serverNode *server_node) sendRequestToPeer(peer string) {
+func (serverNode *serverNode) sendRequestToPeer(peer string) {
 	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error connecting to peer %s: %v", peer, err)
@@ -183,7 +201,46 @@ func (serverNode *server_node) sendRequestToPeer(peer string) {
 	replies++
 }
 
-func (serverNode server_node) LetPeerKnowIExist(ctx context.Context, request *auction.ServerNodeInfo) (*auction.Empty, error) {
+func (serverNode serverNode) SendNewHighestBid(bid *auction.BidMessage, ongoing bool) {
+	for _, peer := range peerList {
+		go func() {
+			conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				log.Fatalf("Error connecting to peer %s: %v", peer, err)
+				return
+			}
+			defer conn.Close()
+
+			requestingClient := auction.NewServerNodeClient(conn)
+
+			_, err = requestingClient.ShareNewHighestBid(context.Background(), &auction.Outcome{
+				Ongoing: ongoing,
+				Amount:  bid.Amount,
+				Name:    bid.Name,
+			})
+			if err != nil {
+				log.Fatalf("Error requesting access from peer %s: %v", peer, err)
+				return
+			}
+
+			log.Printf("%v | '%s' granted %s access to critical section\n", timestamp, peer, serverId)
+		}()
+	}
+}
+
+func (serverNode serverNode) ShareNewHighestBid(ctx context.Context, request *auction.Outcome) (*auction.Empty, error) {
+	if !ongoing {
+		return &auction.Empty{}, nil
+	}
+
+	highestBid = request.Amount
+	highestBidderName = request.Name
+	ongoing = request.Ongoing
+
+	return &auction.Empty{}, nil
+}
+
+func (serverNode serverNode) LetPeerKnowIExist(ctx context.Context, request *auction.ServerNodeInfo) (*auction.Empty, error) {
 	// add requesting client to peerList if it isn't already known
 	if !slices.Contains(peerList, request.ServerNodeListeningIp) {
 		peerList = append(peerList, request.ServerNodeListeningIp)
@@ -196,19 +253,19 @@ func (serverNode server_node) LetPeerKnowIExist(ctx context.Context, request *au
 }
 
 // RequestLamportTimestamp returns this client's Lamport timestamp
-func (serverNode server_node) RequestLamportTimestamp(ctx context.Context, request *auction.Request) (*auction.LamportTimestamp, error) {
+func (serverNode serverNode) RequestLamportTimestamp(ctx context.Context, request *auction.Request) (*auction.LamportTimestamp, error) {
 	log.Printf("%v | %s asked for %s's timestamp: %v", timestamp, request.ServerNodeId, serverId, timestamp)
 	return &auction.LamportTimestamp{Timestamp: timestamp}, nil
 }
 
 // RequestPeerList returns this client's list of known peerList
-func (serverNode server_node) RequestPeerList(ctx context.Context, request *auction.Request) (*auction.PeerList, error) {
+func (serverNode serverNode) RequestPeerList(ctx context.Context, request *auction.Request) (*auction.PeerList, error) {
 	log.Printf("%v | %s sent peer list to %s: %v", timestamp, serverId, request.ServerNodeId, peerList)
 	return &auction.PeerList{PeerList: peerList}, nil
 }
 
 // RequestAccess this is the code that is responding to other serverNodes' requests
-func (serverNode server_node) RequestAccess(ctx context.Context, request *auction.Request) (*auction.Empty, error) {
+func (serverNode serverNode) RequestAccess(ctx context.Context, request *auction.Request) (*auction.Empty, error) {
 	log.Printf("%v | %s asked %s for access to the critical section", timestamp, request.ServerNodeId, serverId)
 
 	// wait to respond if the requesting serverNode is behind this serverNode in the queue
@@ -236,7 +293,7 @@ func setUpListener(serverIp string) {
 	log.Printf("Started listening on ip: %s\n", serverIp)
 
 	// Register the grpc server and serve its listener
-	auction.RegisterServerNodeServer(grpcServer, &server_node{})
+	auction.RegisterServerNodeServer(grpcServer, &serverNode{})
 	serveError := grpcServer.Serve(listener)
 	if serveError != nil {
 		log.Fatalf("Could not serve listener")
@@ -245,7 +302,7 @@ func setUpListener(serverIp string) {
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: go run mutex_client.go <client-id> <client-ip> <known-peer-ip>")
+		log.Fatal("Usage: go run server_node.go <server-id> <server-ip> <known-peer_server-ip>")
 	}
 
 	serverId = os.Args[1]
@@ -257,7 +314,7 @@ func main() {
 		peerList = make([]string, 0)
 	}
 
-	client := &server_node{}
+	client := &serverNode{}
 	log.Printf("%v | Created client: %s", timestamp, serverId)
 
 	// if there is a known peer, ask that peer for the addresses of all the other peerList
