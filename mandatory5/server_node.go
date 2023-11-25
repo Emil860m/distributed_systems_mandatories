@@ -34,6 +34,8 @@ type serverNode struct {
 //todo: remove server from peerList if they don't respond (maybe set timeout to 1 second and then remove the peer when err != nil)
 //todo: maybe add server to peerList when an unknown server asks us for access
 //todo: read the fault tolerance description on the LearnIT page
+//todo: no response from server error handling by client
+//todo: print client usage message at startup
 
 func (serverNode serverNode) Bid(ctx context.Context, request *auction.BidMessage) (*auction.Ack, error) {
 	if !ongoing {
