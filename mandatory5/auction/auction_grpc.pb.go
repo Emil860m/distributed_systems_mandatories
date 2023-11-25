@@ -22,11 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ServerNodeClient interface {
-	RequestAccess(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Empty, error)
-	RequestLamportTimestamp(ctx context.Context, in *Request, opts ...grpc.CallOption) (*LamportTimestamp, error)
-	RequestPeerList(ctx context.Context, in *Request, opts ...grpc.CallOption) (*PeerList, error)
-	LetPeerKnowIExist(ctx context.Context, in *ServerNodeInfo, opts ...grpc.CallOption) (*Empty, error)
-	ShareNewHighestBid(ctx context.Context, in *Outcome, opts ...grpc.CallOption) (*Empty, error)
+	RequestAccess(ctx context.Context, in *AccessRequest, opts ...grpc.CallOption) (*Empty, error)
+	ShareNewHighestBid(ctx context.Context, in *NewHighestBid, opts ...grpc.CallOption) (*Empty, error)
 	Bid(ctx context.Context, in *BidMessage, opts ...grpc.CallOption) (*Ack, error)
 	Result(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Outcome, error)
 }
@@ -39,7 +36,7 @@ func NewServerNodeClient(cc grpc.ClientConnInterface) ServerNodeClient {
 	return &serverNodeClient{cc}
 }
 
-func (c *serverNodeClient) RequestAccess(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Empty, error) {
+func (c *serverNodeClient) RequestAccess(ctx context.Context, in *AccessRequest, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/chat.serverNode/RequestAccess", in, out, opts...)
 	if err != nil {
@@ -48,34 +45,7 @@ func (c *serverNodeClient) RequestAccess(ctx context.Context, in *Request, opts 
 	return out, nil
 }
 
-func (c *serverNodeClient) RequestLamportTimestamp(ctx context.Context, in *Request, opts ...grpc.CallOption) (*LamportTimestamp, error) {
-	out := new(LamportTimestamp)
-	err := c.cc.Invoke(ctx, "/chat.serverNode/RequestLamportTimestamp", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serverNodeClient) RequestPeerList(ctx context.Context, in *Request, opts ...grpc.CallOption) (*PeerList, error) {
-	out := new(PeerList)
-	err := c.cc.Invoke(ctx, "/chat.serverNode/RequestPeerList", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serverNodeClient) LetPeerKnowIExist(ctx context.Context, in *ServerNodeInfo, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/chat.serverNode/LetPeerKnowIExist", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serverNodeClient) ShareNewHighestBid(ctx context.Context, in *Outcome, opts ...grpc.CallOption) (*Empty, error) {
+func (c *serverNodeClient) ShareNewHighestBid(ctx context.Context, in *NewHighestBid, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/chat.serverNode/ShareNewHighestBid", in, out, opts...)
 	if err != nil {
@@ -106,11 +76,8 @@ func (c *serverNodeClient) Result(ctx context.Context, in *Empty, opts ...grpc.C
 // All implementations must embed UnimplementedServerNodeServer
 // for forward compatibility
 type ServerNodeServer interface {
-	RequestAccess(context.Context, *Request) (*Empty, error)
-	RequestLamportTimestamp(context.Context, *Request) (*LamportTimestamp, error)
-	RequestPeerList(context.Context, *Request) (*PeerList, error)
-	LetPeerKnowIExist(context.Context, *ServerNodeInfo) (*Empty, error)
-	ShareNewHighestBid(context.Context, *Outcome) (*Empty, error)
+	RequestAccess(context.Context, *AccessRequest) (*Empty, error)
+	ShareNewHighestBid(context.Context, *NewHighestBid) (*Empty, error)
 	Bid(context.Context, *BidMessage) (*Ack, error)
 	Result(context.Context, *Empty) (*Outcome, error)
 	mustEmbedUnimplementedServerNodeServer()
@@ -120,19 +87,10 @@ type ServerNodeServer interface {
 type UnimplementedServerNodeServer struct {
 }
 
-func (UnimplementedServerNodeServer) RequestAccess(context.Context, *Request) (*Empty, error) {
+func (UnimplementedServerNodeServer) RequestAccess(context.Context, *AccessRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestAccess not implemented")
 }
-func (UnimplementedServerNodeServer) RequestLamportTimestamp(context.Context, *Request) (*LamportTimestamp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RequestLamportTimestamp not implemented")
-}
-func (UnimplementedServerNodeServer) RequestPeerList(context.Context, *Request) (*PeerList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RequestPeerList not implemented")
-}
-func (UnimplementedServerNodeServer) LetPeerKnowIExist(context.Context, *ServerNodeInfo) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LetPeerKnowIExist not implemented")
-}
-func (UnimplementedServerNodeServer) ShareNewHighestBid(context.Context, *Outcome) (*Empty, error) {
+func (UnimplementedServerNodeServer) ShareNewHighestBid(context.Context, *NewHighestBid) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShareNewHighestBid not implemented")
 }
 func (UnimplementedServerNodeServer) Bid(context.Context, *BidMessage) (*Ack, error) {
@@ -155,7 +113,7 @@ func RegisterServerNodeServer(s grpc.ServiceRegistrar, srv ServerNodeServer) {
 }
 
 func _ServerNode_RequestAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
+	in := new(AccessRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -167,67 +125,13 @@ func _ServerNode_RequestAccess_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/chat.serverNode/RequestAccess",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServerNodeServer).RequestAccess(ctx, req.(*Request))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ServerNode_RequestLamportTimestamp_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServerNodeServer).RequestLamportTimestamp(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/chat.serverNode/RequestLamportTimestamp",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServerNodeServer).RequestLamportTimestamp(ctx, req.(*Request))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ServerNode_RequestPeerList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServerNodeServer).RequestPeerList(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/chat.serverNode/RequestPeerList",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServerNodeServer).RequestPeerList(ctx, req.(*Request))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ServerNode_LetPeerKnowIExist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ServerNodeInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServerNodeServer).LetPeerKnowIExist(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/chat.serverNode/LetPeerKnowIExist",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServerNodeServer).LetPeerKnowIExist(ctx, req.(*ServerNodeInfo))
+		return srv.(ServerNodeServer).RequestAccess(ctx, req.(*AccessRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ServerNode_ShareNewHighestBid_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Outcome)
+	in := new(NewHighestBid)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -239,7 +143,7 @@ func _ServerNode_ShareNewHighestBid_Handler(srv interface{}, ctx context.Context
 		FullMethod: "/chat.serverNode/ShareNewHighestBid",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServerNodeServer).ShareNewHighestBid(ctx, req.(*Outcome))
+		return srv.(ServerNodeServer).ShareNewHighestBid(ctx, req.(*NewHighestBid))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -290,18 +194,6 @@ var ServerNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RequestAccess",
 			Handler:    _ServerNode_RequestAccess_Handler,
-		},
-		{
-			MethodName: "RequestLamportTimestamp",
-			Handler:    _ServerNode_RequestLamportTimestamp_Handler,
-		},
-		{
-			MethodName: "RequestPeerList",
-			Handler:    _ServerNode_RequestPeerList_Handler,
-		},
-		{
-			MethodName: "LetPeerKnowIExist",
-			Handler:    _ServerNode_LetPeerKnowIExist_Handler,
 		},
 		{
 			MethodName: "ShareNewHighestBid",

@@ -26,7 +26,7 @@ func main() {
 
 	for {
 		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("\nEnter your command: ")
+		fmt.Print("\n\nEnter your command: ")
 		text, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatalf("something went wrong: %v", err)
@@ -70,7 +70,6 @@ func makeBid(amountStr string) {
 	fmt.Printf("Response: %v", response)
 }
 func getResult() {
-	fmt.Println("Getting result")
 	conn, err := grpc.Dial(serverIP, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Error connecting to server %s: %v", serverIP, err)

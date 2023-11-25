@@ -4,22 +4,29 @@ package chat;
 option go_package = "/auction";
 
 service serverNode {
-  rpc RequestAccess(Request) returns (Empty);
-  rpc RequestLamportTimestamp(Request) returns (LamportTimestamp);
-  rpc RequestPeerList(Request) returns (PeerList);
-  rpc LetPeerKnowIExist(serverNodeInfo) returns (Empty);
+  rpc RequestAccess(AccessRequest) returns (Empty);
+  rpc ShareNewHighestBid(NewHighestBid) returns (Empty);
 
-  rpc ShareNewHighestBid(outcome) returns (Empty);
   rpc Bid(bidMessage) returns (ack);
   rpc Result(Empty) returns (outcome);
 }
 
-//service serverNode {
-//  rpc bid(bid) returns (ack);
-//  rpc result(result) returns (outcome);
-//}
 
+message AccessRequest {
+  string serverNodeId = 1;
+  int32 bidTimestamp = 2;
+}
 
+message NewHighestBid {
+  int32 amount = 2;
+  string name = 3;
+  int32 timestamp = 4;
+}
+message outcome {
+  bool ongoing = 1;
+  int32 amount = 2;
+  string name = 3;
+}
 
 message bidMessage {
   int32 amount = 1;
@@ -30,33 +37,4 @@ message ack {
   string outcome = 1;
 }
 
-message outcome {
-  bool ongoing = 1;
-  int32 amount = 2;
-  string name = 3;
-}
-
-
-
-
-
-
-
-message Request {
-  string serverNodeId = 1;
-  int32 timestamp = 2;
-}
-message serverNodeInfo {
-  string serverNodeId = 1;
-  string serverNodeListeningIp = 2;
-}
-
 message Empty {}
-
-message LamportTimestamp {
-  string serverNodeId = 1;
-  int32 timestamp = 2;
-}
-message PeerList {
-  repeated string peerList = 1;
-}
