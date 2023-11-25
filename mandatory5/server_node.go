@@ -30,7 +30,11 @@ type serverNode struct {
 	auction.UnimplementedServerNodeServer
 }
 
-// RequestAccess this is the code that is responding to other serverNodes' requests
+//TODO: Fault tolerance
+//todo: remove server from peerList if they don't respond (maybe set timeout to 1 second and then remove the peer when err != nil)
+//todo: maybe add server to peerList when an unknown server asks us for access
+//todo: read the fault tolerance description on the LearnIT page
+
 func (serverNode serverNode) Bid(ctx context.Context, request *auction.BidMessage) (*auction.Ack, error) {
 	if !ongoing {
 		return &auction.Ack{Outcome: "Fail: auction is finished"}, nil
@@ -76,7 +80,6 @@ func (serverNode serverNode) Result(ctx context.Context, request *auction.Empty)
 	}, nil
 }
 
-// ask the other serverNodes for access
 func (serverNode *serverNode) queueBid(bid *auction.BidMessage) bool {
 	bidSuccessful := false
 
