@@ -13,10 +13,7 @@ import (
 
 var clientStreams []chat.Chittychat_ConnectServer
 var highestClientId int32 = 0
-var serverTivar clientStreams []chat.Chittychat_ConnectServer
-var highestClientId int32 = 0
 var serverTimestamp int32 = 0
-var serverPort int = 8000mestamp int32 = 0
 var serverPort int = 8000
 
 func main() {
