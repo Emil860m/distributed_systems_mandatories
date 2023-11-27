@@ -32,7 +32,6 @@ type serverNode struct {
 
 //TODO: Fault tolerance
 //todo: read the fault tolerance description on the LearnIT page
-//todo: no response from server error handling by client
 
 func (serverNode serverNode) Bid(ctx context.Context, request *auction.BidMessage) (*auction.Ack, error) {
 	if !ongoing {
@@ -148,7 +147,8 @@ func (serverNode *serverNode) sendAccessRequestToPeer(peer string) {
 		BidTimestamp: bidTimestamp,
 	})
 	if err != nil {
-		log.Fatalf("Error requesting access from peer %s: %v", peer, err)
+		log.Printf("Error connecting to peer %s: %v", peer, err)
+		removePeerFromList(peer)
 		return
 	}
 
@@ -159,6 +159,7 @@ func (serverNode *serverNode) sendAccessRequestToPeer(peer string) {
 }
 
 func removePeerFromList(peer string) {
+	log.Printf("Removing peer '%s' from peer list", peer)
 	for i := 0; i < len(peerList); i++ {
 		if peerList[i] == peer {
 			peerList[i] = peerList[len(peerList)-1]
