@@ -31,11 +31,8 @@ type serverNode struct {
 }
 
 //TODO: Fault tolerance
-//todo: remove server from peerList if they don't respond (maybe set timeout to 1 second and then remove the peer when err != nil)
-//todo: maybe add server to peerList when an unknown server asks us for access
 //todo: read the fault tolerance description on the LearnIT page
 //todo: no response from server error handling by client
-//todo: print client usage message at startup
 
 func (serverNode serverNode) Bid(ctx context.Context, request *auction.BidMessage) (*auction.Ack, error) {
 	if !ongoing {
@@ -138,7 +135,8 @@ func (serverNode *serverNode) sendAccessRequestToPeer(peer string) {
 
 	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Error connecting to peer %s: %v", peer, err)
+		log.Printf("Error connecting to peer %s: %v", peer, err)
+		removePeerFromList(peer)
 		return
 	}
 	defer conn.Close()
@@ -158,6 +156,16 @@ func (serverNode *serverNode) sendAccessRequestToPeer(peer string) {
 
 	// increment replies if we got a reply from another server ahead of this server in the bid queue
 	replies++
+}
+
+func removePeerFromList(peer string) {
+	for i := 0; i < len(peerList); i++ {
+		if peerList[i] == peer {
+			peerList[i] = peerList[len(peerList)-1]
+			peerList = peerList[:len(peerList)-1]
+			return
+		}
+	}
 }
 
 // RequestAccess this is the code that is responding to other serverNodes' requests

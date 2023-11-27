@@ -23,16 +23,12 @@ func main() {
 
 	username = os.Args[1]
 	serverIP = os.Args[2]
+	fmt.Println("Usage\n- bid <amount>\n- result")
 
 	for {
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("\n\nEnter your command: ")
-		text, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatalf("something went wrong: %v", err)
-		}
 
-		args := strings.Split(strings.TrimSpace(strings.ToLower(text)), " ")
+		text := takeInput("Enter your command: ")
+		args := strings.Split(text, " ")
 		if len(args) == 2 && args[0] == "bid" {
 			makeBid(args[1])
 		} else if len(args) == 1 && args[0] == "result" {
@@ -41,6 +37,16 @@ func main() {
 			fmt.Println("Usage\n- bid <amount>\n- result")
 		}
 	}
+}
+
+func takeInput(inputCommand string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("\n\n%v", inputCommand)
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		log.Fatalf("something went wrong: %v", err)
+	}
+	return strings.TrimSpace(strings.ToLower(text))
 }
 
 func makeBid(amountStr string) {
@@ -53,7 +59,9 @@ func makeBid(amountStr string) {
 
 	conn, err := grpc.Dial(serverIP, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Error connecting to server %s: %v", serverIP, err)
+		log.Printf("Error connecting to server %s: %v", serverIP, err)
+		text := takeInput("Enter new server IP and port: ")
+		serverIP = text
 		return
 	}
 	defer conn.Close()
@@ -64,7 +72,9 @@ func makeBid(amountStr string) {
 		Amount: amount32,
 	})
 	if err != nil {
-		log.Fatalf("Error requesting access from peer %s: %v", serverIP, err)
+		log.Printf("Error connecting to server %s: %v", serverIP, err)
+		text := takeInput("Enter new server IP and port: ")
+		serverIP = text
 		return
 	}
 	fmt.Printf("Response: %v", response)
@@ -72,7 +82,9 @@ func makeBid(amountStr string) {
 func getResult() {
 	conn, err := grpc.Dial(serverIP, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Error connecting to server %s: %v", serverIP, err)
+		log.Printf("Error connecting to server %s: %v", serverIP, err)
+		text := takeInput("Enter new server IP and port: ")
+		serverIP = text
 		return
 	}
 	defer conn.Close()
@@ -80,7 +92,9 @@ func getResult() {
 	requestingClient := auction.NewServerNodeClient(conn)
 	response, err := requestingClient.Result(context.Background(), &auction.Empty{})
 	if err != nil {
-		log.Fatalf("Error requesting access from peer %s: %v", serverIP, err)
+		log.Printf("Error connecting to server %s: %v", serverIP, err)
+		text := takeInput("Enter new server IP and port: ")
+		serverIP = text
 		return
 	}
 	if response.Ongoing {
