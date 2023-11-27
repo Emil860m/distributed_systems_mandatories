@@ -62,6 +62,7 @@ func makeBid(amountStr string) {
 		log.Printf("Error connecting to server %s: %v", serverIP, err)
 		text := takeInput("Enter new server IP and port: ")
 		serverIP = text
+		makeBid(amountStr)
 		return
 	}
 	defer conn.Close()
@@ -75,6 +76,7 @@ func makeBid(amountStr string) {
 		log.Printf("Error connecting to server %s: %v", serverIP, err)
 		text := takeInput("Enter new server IP and port: ")
 		serverIP = text
+		makeBid(amountStr)
 		return
 	}
 	fmt.Printf("Response: %v", response)
@@ -85,6 +87,7 @@ func getResult() {
 		log.Printf("Error connecting to server %s: %v", serverIP, err)
 		text := takeInput("Enter new server IP and port: ")
 		serverIP = text
+		getResult()
 		return
 	}
 	defer conn.Close()
@@ -95,6 +98,7 @@ func getResult() {
 		log.Printf("Error connecting to server %s: %v", serverIP, err)
 		text := takeInput("Enter new server IP and port: ")
 		serverIP = text
+		getResult()
 		return
 	}
 	if response.Ongoing {
