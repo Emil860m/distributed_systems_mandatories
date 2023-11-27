@@ -190,7 +190,7 @@ func (serverNode serverNode) RequestAccess(ctx context.Context, accessRequest *a
 }
 
 func (serverNode serverNode) SendNewHighestBidToPeer(peerIp string, newHighestBid *auction.BidMessage, ongoing bool) {
-	log.Printf("%v | Sharing new highest newHighestBid with %v", timestamp, peerIp)
+	log.Printf("%v | Sharing new highest bid with %v", timestamp, peerIp)
 
 	conn, err := grpc.Dial(peerIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -210,8 +210,6 @@ func (serverNode serverNode) SendNewHighestBidToPeer(peerIp string, newHighestBi
 		log.Fatalf("Error requesting access from peerIp %s: %v", peerIp, err)
 		return
 	}
-
-	log.Printf("%v | '%s' granted %s access to critical section\n", timestamp, peerIp, serverId)
 }
 func (serverNode serverNode) ShareNewHighestBid(ctx context.Context, newHighestBid *auction.NewHighestBid) (*auction.Empty, error) {
 	if !ongoing {

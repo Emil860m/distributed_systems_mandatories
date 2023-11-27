@@ -1,0 +1,196 @@
+# Server 1 logs:
+go run server_node.go server1 localhost:5001 localhost:5002 localhost:5003
+
+2023/11/27 15:53:39 0 | Created server node: server1
+2023/11/27 15:53:39 0 | Started listening on ip: localhost:5001
+2023/11/27 15:55:10 0 | client1 made bid of 10
+2023/11/27 15:55:10 0 | server1 is now trying to gain access to the critical section
+2023/11/27 15:55:10 1 | server1 sent access request to localhost:5003
+2023/11/27 15:55:10 1 | server1 sent access request to localhost:5002
+2023/11/27 15:55:10 1 | 'localhost:5002' granted server1 access to critical section
+2023/11/27 15:55:10 1 | 'localhost:5003' granted server1 access to critical section
+2023/11/27 15:55:10 1 | server1 entered critical section
+2023/11/27 15:55:10 1 | server2 asked server1 for access to the critical section
+2023/11/27 15:55:11 1 | server3 asked server1 for access to the critical section
+2023/11/27 15:55:13 1 | Sharing new highest bid: 10 by client1
+2023/11/27 15:55:13 1 | Sharing new highest bid with localhost:5002
+2023/11/27 15:55:13 1 | Sharing new highest bid with localhost:5003
+2023/11/27 15:55:13 1 | server1 exited critical section
+2023/11/27 15:55:13 3 | Timestamp updated
+2023/11/27 15:55:13 3 | server1 granted server3 access to the critical section
+2023/11/27 15:55:13 3 | server1 granted server2 access to the critical section
+2023/11/27 15:55:16 3 | Received new highest bid: 20 by client2
+2023/11/27 15:55:19 3 | Received new highest bid: 30 by client3
+^Csignal: interrupt (this is our simulated crash)
+
+
+
+# Server 2 logs:
+go run server_node.go server2 localhost:5002 localhost:5001 localhost:5003
+
+2023/11/27 15:53:59 0 | Created server node: server2
+2023/11/27 15:53:59 0 | Started listening on ip: localhost:5002
+2023/11/27 15:55:10 0 | server1 asked server2 for access to the critical section
+2023/11/27 15:55:10 1 | Timestamp updated
+2023/11/27 15:55:10 1 | server2 granted server1 access to the critical section
+2023/11/27 15:55:10 1 | client2 made bid of 20
+2023/11/27 15:55:10 1 | server2 is now trying to gain access to the critical section
+2023/11/27 15:55:10 2 | server2 sent access request to localhost:5003
+2023/11/27 15:55:10 2 | server2 sent access request to localhost:5001
+2023/11/27 15:55:10 2 | 'localhost:5003' granted server2 access to critical section
+2023/11/27 15:55:11 2 | server3 asked server2 for access to the critical section
+2023/11/27 15:55:13 2 | 'localhost:5001' granted server2 access to critical section
+2023/11/27 15:55:13 2 | Received new highest bid: 10 by client1
+2023/11/27 15:55:13 2 | server2 entered critical section
+2023/11/27 15:55:16 2 | Sharing new highest bid: 20 by client2
+2023/11/27 15:55:16 2 | Sharing new highest bid with localhost:5001
+2023/11/27 15:55:16 2 | Sharing new highest bid with localhost:5003
+2023/11/27 15:55:16 2 | server2 exited critical section
+2023/11/27 15:55:16 3 | Timestamp updated
+2023/11/27 15:55:16 3 | server2 granted server3 access to the critical section
+2023/11/27 15:55:19 3 | Received new highest bid: 30 by client3
+2023/11/27 15:55:47 3 | client1 made bid of 100
+2023/11/27 15:55:47 3 | server2 is now trying to gain access to the critical section
+2023/11/27 15:55:47 4 | server2 sent access request to localhost:5003
+2023/11/27 15:55:47 4 | server2 sent access request to localhost:5001
+2023/11/27 15:55:47 Error connecting to peerIp localhost:5001: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp 127.0.0.1:5001: connect: connection refused"
+2023/11/27 15:55:47 Removing peerIp 'localhost:5001' from peerIp list
+2023/11/27 15:55:47 4 | 'localhost:5003' granted server2 access to critical section
+2023/11/27 15:55:47 4 | server2 entered critical section
+2023/11/27 15:55:50 4 | Sharing new highest bid: 100 by client1
+2023/11/27 15:55:50 4 | Sharing new highest bid with localhost:5003
+2023/11/27 15:55:50 4 | server2 exited critical section
+2023/11/27 15:55:59 4 | server3 asked server2 for access to the critical section
+2023/11/27 15:55:59 5 | Timestamp updated
+2023/11/27 15:55:59 5 | server2 granted server3 access to the critical section
+2023/11/27 15:56:02 5 | Received new highest bid: 5000 by client3
+2023/11/27 15:56:02 5 | Auction finished! (5 >= 5)
+
+
+
+# Server 3 logs:
+go run server_node.go server3 localhost:5003 localhost:5001 localhost:5002
+
+2023/11/27 15:54:27 0 | Created server node: server3
+2023/11/27 15:54:27 0 | Started listening on ip: localhost:5003
+2023/11/27 15:55:10 0 | server1 asked server3 for access to the critical section
+2023/11/27 15:55:10 1 | Timestamp updated
+2023/11/27 15:55:10 1 | server3 granted server1 access to the critical section
+2023/11/27 15:55:10 1 | server2 asked server3 for access to the critical section
+2023/11/27 15:55:10 2 | Timestamp updated
+2023/11/27 15:55:10 2 | server3 granted server2 access to the critical section
+2023/11/27 15:55:11 2 | client3 made bid of 30
+2023/11/27 15:55:11 2 | server3 is now trying to gain access to the critical section
+2023/11/27 15:55:11 3 | server3 sent access request to localhost:5002
+2023/11/27 15:55:11 3 | server3 sent access request to localhost:5001
+2023/11/27 15:55:13 3 | Received new highest bid: 10 by client1
+2023/11/27 15:55:13 3 | 'localhost:5001' granted server3 access to critical section
+2023/11/27 15:55:16 3 | Received new highest bid: 20 by client2
+2023/11/27 15:55:16 3 | 'localhost:5002' granted server3 access to critical section
+2023/11/27 15:55:16 3 | server3 entered critical section
+2023/11/27 15:55:19 3 | Sharing new highest bid: 30 by client3
+2023/11/27 15:55:19 3 | Sharing new highest bid with localhost:5001
+2023/11/27 15:55:19 3 | Sharing new highest bid with localhost:5002
+2023/11/27 15:55:19 3 | server3 exited critical section
+2023/11/27 15:55:47 3 | server2 asked server3 for access to the critical section
+2023/11/27 15:55:47 4 | Timestamp updated
+2023/11/27 15:55:47 4 | server3 granted server2 access to the critical section
+2023/11/27 15:55:50 4 | Received new highest bid: 100 by client1
+2023/11/27 15:55:59 4 | client3 made bid of 5000
+2023/11/27 15:55:59 4 | server3 is now trying to gain access to the critical section
+2023/11/27 15:55:59 5 | server3 sent access request to localhost:5002
+2023/11/27 15:55:59 5 | server3 sent access request to localhost:5001
+2023/11/27 15:55:59 Error connecting to peerIp localhost:5001: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp 127.0.0.1:5001: connect: connection refused"
+2023/11/27 15:55:59 Removing peerIp 'localhost:5001' from peerIp list
+2023/11/27 15:55:59 5 | 'localhost:5002' granted server3 access to critical section
+2023/11/27 15:55:59 5 | server3 entered critical section
+2023/11/27 15:56:02 5 | Sharing new highest bid: 5000 by client3
+2023/11/27 15:56:02 5 | Sharing new highest bid with localhost:5002
+2023/11/27 15:56:02 5 | server3 exited critical section
+2023/11/27 15:56:02 5 | Auction finished! (5 >= 5)
+
+
+
+# Client 1 logs:
+go run client.go client1 localhost:5001
+
+Usage:
+- bid <amount>
+- result
+
+Enter your command: bid 10
+Making bid 10 as client1
+Response: outcome:"Success"
+
+Enter your command: result
+Auction still ongoing
+Highest bidder: client3
+Highest bid: 30
+
+Enter your command: bid 100
+Making bid 100 as client1
+2023/11/27 15:55:42 Error connecting to server localhost:5001: 
+rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing: dial tcp 127.0.0.1:5001: connect: connection refused"
+
+Enter new server IP and port: localhost:5002
+Making bid 100 as client1
+Response: outcome:"Success"
+
+Enter your command: bid 6000
+Making bid 6000 as client1
+Response: outcome:"Fail: auction is finished"
+
+Enter your command: result
+Auction finished
+Highest bidder: client3
+Highest bid: 5000
+
+
+
+# Client 2 logs:
+go run client.go client2 localhost:5002
+
+Usage:
+- bid <amount>
+- result
+
+Enter your command: bid 20
+Making bid 20 as client2
+Response: outcome:"Success"
+
+Enter your command: result
+Auction still ongoing
+Highest bidder: client3
+Highest bid: 30
+
+Enter your command: result
+Auction finished
+Highest bidder: client3
+Highest bid: 5000
+
+
+
+# Client 3 logs:
+go run client.go client3 localhost:5003
+
+Usage:
+- bid <amount>
+- result
+
+Enter your command: bid 30
+Making bid 30 as client3
+Response: outcome:"Success"
+
+Enter your command: result
+Auction still ongoing
+Highest bidder: client3
+Highest bid: 30
+
+Enter your command: bid 5000
+Making bid 5000 as client3
+Response: outcome:"Success"
+
+Enter your command: result
+Auction finished
+Highest bidder: client3
+Highest bid: 5000
