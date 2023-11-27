@@ -14,40 +14,63 @@ import (
 const auctionFinishTimestamp = 5
 
 var highestBid int32 = 0
-var highestBidderName string = "No bids yet"
-var ongoing bool = true
+var highestBidderName = "No bids yet"
+var ongoing = true
 
 var serverId = ""
 var serverIp = ""
 var timestamp int32 = 0
 var bidTimestamp int32 = 0
+
 var waitingForAccess = false
 var inCriticalSection = false
 var replies = 0
-var peerList = make([]string, 1)
+var peerIpList = make([]string, 1)
+
+func main() {
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: go run server_node.go <server-id> <server-ip> <peer-server-ip-1> <peer-server-ip-2> ...")
+	}
+
+	serverId = os.Args[1]
+	serverIp = os.Args[2]
+	peerIpList = os.Args[3:]
+
+	log.Printf("%v | Created server node: %s", timestamp, serverId)
+
+	// setup listener on server IP and port
+	go setUpListener(serverIp)
+
+	time.Sleep(time.Hour)
+}
 
 type serverNode struct {
 	auction.UnimplementedServerNodeServer
 }
 
-//TODO: Fault tolerance
-//todo: read the fault tolerance description on the LearnIT page
+func (serverNode serverNode) Result(ctx context.Context, request *auction.Empty) (*auction.Outcome, error) {
+	return &auction.Outcome{
+		Ongoing: ongoing,
+		Amount:  highestBid,
+		Name:    highestBidderName,
+	}, nil
+}
 
-func (serverNode serverNode) Bid(ctx context.Context, request *auction.BidMessage) (*auction.Ack, error) {
+func (serverNode serverNode) Bid(ctx context.Context, bid *auction.BidMessage) (*auction.Ack, error) {
 	if !ongoing {
 		return &auction.Ack{Outcome: "Fail: auction is finished"}, nil
 	}
 
-	//todo: make a thing that returns ack{exception}
-	log.Printf("%v | %s made bid of %v", timestamp, request.Name, request.Amount)
+	log.Printf("%v | %s made bid of %v", timestamp, bid.Name, bid.Amount)
 
-	if request.Amount <= highestBid {
+	if bid.Amount <= highestBid {
 		return &auction.Ack{
 			Outcome: "Fail: bid was not higher than highest bid",
 		}, nil
 	}
 
-	successfulBid := serverNode.queueBid(request)
+	// add bid to the shared bid-queue between server-nodes
+	successfulBid := serverNode.queueBid(bid)
 
 	if ongoing && timestamp >= auctionFinishTimestamp {
 		ongoing = false
@@ -70,44 +93,36 @@ func (serverNode serverNode) Bid(ctx context.Context, request *auction.BidMessag
 
 }
 
-func (serverNode serverNode) Result(ctx context.Context, request *auction.Empty) (*auction.Outcome, error) {
-	return &auction.Outcome{
-		Ongoing: ongoing,
-		Amount:  highestBid,
-		Name:    highestBidderName,
-	}, nil
-}
-
+// queueBid Returns true if the bid was successfully placed
 func (serverNode *serverNode) queueBid(bid *auction.BidMessage) bool {
-	bidSuccessful := false
-
-	log.Printf("%v | %s's peer list is: %v", timestamp, serverId, peerList)
-
 	log.Printf("%v | %s is now trying to gain access to the critical section\n", timestamp, serverId)
 
 	timestamp++
 	bidTimestamp = timestamp
+
+	bidSuccessful := false
 	waitingForAccess = true
 	replies = 0
 
-	for _, peer := range peerList {
-		go serverNode.sendAccessRequestToPeer(peer)
+	// ask other server-nodes for access critical section
+	for _, peerIp := range peerIpList {
+		go serverNode.sendAccessRequestToPeer(peerIp)
 	}
 
-	// wait for all replies
-	for replies < len(peerList) {
+	// wait for replies from all server-nodes in list of peers
+	for replies < len(peerIpList) {
 		time.Sleep(time.Millisecond * 100)
 	}
+
 	if !ongoing {
 		waitingForAccess = false
 		return false
 	}
 
-	// Enter Critical Section
+	// Enter critical section
 	log.Printf("%v | %s entered critical section\n", timestamp, serverId)
 	inCriticalSection = true
 
-	//access critical section
 	time.Sleep(time.Second * 3) // access delay for easier manual testing
 
 	if bid.Amount > highestBid {
@@ -115,8 +130,8 @@ func (serverNode *serverNode) queueBid(bid *auction.BidMessage) bool {
 		highestBidderName = bid.Name
 
 		log.Printf("%v | Sharing new highest bid: %v by %v", timestamp, bid.Amount, bid.Name)
-		for _, peer := range peerList {
-			serverNode.SendNewHighestBid(peer, bid, ongoing)
+		for _, peerIp := range peerIpList {
+			serverNode.SendNewHighestBidToPeer(peerIp, bid, ongoing)
 		}
 
 		bidSuccessful = true
@@ -129,13 +144,13 @@ func (serverNode *serverNode) queueBid(bid *auction.BidMessage) bool {
 	return bidSuccessful
 }
 
-func (serverNode *serverNode) sendAccessRequestToPeer(peer string) {
-	log.Printf("%v | %s sent access request to %s\n", timestamp, serverId, peer)
+func (serverNode *serverNode) sendAccessRequestToPeer(peerIp string) {
+	log.Printf("%v | %s sent access request to %s\n", timestamp, serverId, peerIp)
 
-	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(peerIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("Error connecting to peer %s: %v", peer, err)
-		removePeerFromList(peer)
+		log.Printf("Error connecting to peerIp %s: %v", peerIp, err)
+		removePeerIpFromList(peerIp)
 		return
 	}
 	defer conn.Close()
@@ -147,52 +162,39 @@ func (serverNode *serverNode) sendAccessRequestToPeer(peer string) {
 		BidTimestamp: bidTimestamp,
 	})
 	if err != nil {
-		log.Printf("Error connecting to peer %s: %v", peer, err)
-		removePeerFromList(peer)
+		log.Printf("Error connecting to peerIp %s: %v", peerIp, err)
+		removePeerIpFromList(peerIp)
 		return
 	}
 
-	log.Printf("%v | '%s' granted %s access to critical section\n", timestamp, peer, serverId)
+	log.Printf("%v | '%s' granted %s access to critical section\n", timestamp, peerIp, serverId)
 
 	// increment replies if we got a reply from another server ahead of this server in the bid queue
 	replies++
 }
+func (serverNode serverNode) RequestAccess(ctx context.Context, accessRequest *auction.AccessRequest) (*auction.Empty, error) {
+	log.Printf("%v | %s asked %s for access to the critical section", timestamp, accessRequest.ServerNodeId, serverId)
 
-func removePeerFromList(peer string) {
-	log.Printf("Removing peer '%s' from peer list", peer)
-	for i := 0; i < len(peerList); i++ {
-		if peerList[i] == peer {
-			peerList[i] = peerList[len(peerList)-1]
-			peerList = peerList[:len(peerList)-1]
-			return
-		}
-	}
-}
-
-// RequestAccess this is the code that is responding to other serverNodes' requests
-func (serverNode serverNode) RequestAccess(ctx context.Context, request *auction.AccessRequest) (*auction.Empty, error) {
-	log.Printf("%v | %s asked %s for access to the critical section", timestamp, request.ServerNodeId, serverId)
-
-	// wait to respond if the requesting serverNode is behind this serverNode in the queue
-	if inCriticalSection || (waitingForAccess && request.BidTimestamp > bidTimestamp) {
+	// wait to respond if the requesting serverNode is behind this serverNode in the shared bid-queue
+	if inCriticalSection || (waitingForAccess && accessRequest.BidTimestamp > bidTimestamp) {
 		for (waitingForAccess || inCriticalSection) && ongoing {
 			time.Sleep(time.Millisecond * 100)
 		}
 	}
 
-	updateTimestamp(request.BidTimestamp)
+	updateTimestamp(accessRequest.BidTimestamp)
 
-	log.Printf("%v | %s granted %s access to the critical section", timestamp, serverId, request.ServerNodeId)
+	log.Printf("%v | %s granted %s access to the critical section", timestamp, serverId, accessRequest.ServerNodeId)
 
 	return &auction.Empty{}, nil
 }
 
-func (serverNode serverNode) SendNewHighestBid(peer string, bid *auction.BidMessage, ongoing bool) {
-	log.Printf("%v | Sharing new highest bid with %v", timestamp, peer)
+func (serverNode serverNode) SendNewHighestBidToPeer(peerIp string, newHighestBid *auction.BidMessage, ongoing bool) {
+	log.Printf("%v | Sharing new highest newHighestBid with %v", timestamp, peerIp)
 
-	conn, err := grpc.Dial(peer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(peerIp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Error connecting to peer %s: %v", peer, err)
+		log.Fatalf("Error connecting to peerIp %s: %v", peerIp, err)
 		return
 	}
 	defer conn.Close()
@@ -200,29 +202,28 @@ func (serverNode serverNode) SendNewHighestBid(peer string, bid *auction.BidMess
 	requestingClient := auction.NewServerNodeClient(conn)
 
 	_, err = requestingClient.ShareNewHighestBid(context.Background(), &auction.NewHighestBid{
-		Amount:    bid.Amount,
-		Name:      bid.Name,
+		Amount:    newHighestBid.Amount,
+		Name:      newHighestBid.Name,
 		Timestamp: timestamp,
 	})
 	if err != nil {
-		log.Fatalf("Error requesting access from peer %s: %v", peer, err)
+		log.Fatalf("Error requesting access from peerIp %s: %v", peerIp, err)
 		return
 	}
 
-	log.Printf("%v | '%s' granted %s access to critical section\n", timestamp, peer, serverId)
+	log.Printf("%v | '%s' granted %s access to critical section\n", timestamp, peerIp, serverId)
 }
-
-func (serverNode serverNode) ShareNewHighestBid(ctx context.Context, request *auction.NewHighestBid) (*auction.Empty, error) {
+func (serverNode serverNode) ShareNewHighestBid(ctx context.Context, newHighestBid *auction.NewHighestBid) (*auction.Empty, error) {
 	if !ongoing {
 		return &auction.Empty{}, nil
 	}
 
-	log.Printf("%v | Received new highest bid: %v by %v", timestamp, request.Amount, request.Name)
+	log.Printf("%v | Received new highest bid: %v by %v", timestamp, newHighestBid.Amount, newHighestBid.Name)
 
-	highestBid = request.Amount
-	highestBidderName = request.Name
+	highestBid = newHighestBid.Amount
+	highestBidderName = newHighestBid.Name
 
-	updateTimestamp(request.Timestamp)
+	updateTimestamp(newHighestBid.Timestamp)
 	if ongoing && timestamp >= auctionFinishTimestamp {
 		ongoing = false
 		log.Printf("%v | Auction finished! (%v >= %v)", timestamp, timestamp, auctionFinishTimestamp)
@@ -234,7 +235,6 @@ func (serverNode serverNode) ShareNewHighestBid(ctx context.Context, request *au
 func setUpListener(serverIp string) {
 	// Create a new grpc server
 	grpcServer := grpc.NewServer()
-	// Make the server listen at the given port (convert int port to string)
 	listener, err := net.Listen("tcp", serverIp)
 	if err != nil {
 		log.Fatalf("Could not create the server %v", err)
@@ -250,27 +250,19 @@ func setUpListener(serverIp string) {
 		log.Fatalf("Could not serve listener")
 	}
 }
-
+func removePeerIpFromList(peerIp string) {
+	log.Printf("Removing peerIp '%s' from peerIp list", peerIp)
+	for i := 0; i < len(peerIpList); i++ {
+		if peerIpList[i] == peerIp {
+			peerIpList[i] = peerIpList[len(peerIpList)-1]
+			peerIpList = peerIpList[:len(peerIpList)-1]
+			return
+		}
+	}
+}
 func updateTimestamp(newTimestamp int32) {
 	if newTimestamp > timestamp {
 		timestamp = newTimestamp
 		log.Printf("%v | Timestamp updated", timestamp)
 	}
-}
-
-func main() {
-	if len(os.Args) < 2 {
-		log.Fatal("Usage: go run server_node.go <server-id> <server-ip> <peer-server-ip-1> <peer-server-ip-2> ...")
-	}
-
-	serverId = os.Args[1]
-	serverIp = os.Args[2]
-	peerList = os.Args[3:]
-
-	log.Printf("%v | Created server node: %s", timestamp, serverId)
-
-	// setup listener on server IP and port
-	go setUpListener(serverIp)
-
-	time.Sleep(time.Hour)
 }
